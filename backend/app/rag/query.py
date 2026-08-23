@@ -53,8 +53,13 @@ def stream_answer(question: str) -> Iterator[str]:
         for token in streaming.response_gen:
             yield token
     except Exception as exc:
-        # LLM or vector store unavailable — clear message, no secrets leaked.
-        logger.error("Chat query failed: %s", exc.__class__.__name__)
+        # LLM or vector store unavailable. Log the REAL underlying error
+        # (type + message, e.g. DeepSeek "401 Authentication Fails" or a
+        # connection error) so failures are diagnosable from the backend logs.
+        # Provider SDK exceptions carry the HTTP status and response body, not
+        # the Authorization header, so the API key is never included here.
+        # Full traceback via exc_info; the user still sees a safe generic line.
+        logger.error("Chat query failed: %s: %s", exc.__class__.__name__, exc, exc_info=True)
         yield (
             "The assistant is temporarily unavailable. Please try again in a moment."
         )
