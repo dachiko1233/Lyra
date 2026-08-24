@@ -48,6 +48,10 @@ def run_migrations_online() -> None:
             compare_type=True,
         )
         with context.begin_transaction():
+            # Backstop: if some session still holds a conflicting lock, error out
+            # within 30s (Railway retries the deploy) instead of hanging for
+            # minutes. app.db.preflight normally clears such sessions first.
+            connection.exec_driver_sql("SET lock_timeout = '30s'")
             context.run_migrations()
 
 
