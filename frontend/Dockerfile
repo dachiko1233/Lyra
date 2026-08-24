@@ -35,11 +35,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # $uri is left untouched. Single-quoted printf writes the vars literally.
 ENV PORT=5173 NGINX_ENVSUBST_FILTER=PORT
 RUN rm -f /etc/nginx/conf.d/default.conf \
-  && printf 'server {\n\
-  listen ${PORT};\n\
-  root /usr/share/nginx/html;\n\
-  index index.html;\n\
-  location / { try_files $uri $uri/ /index.html; }\n\
-}\n' > /etc/nginx/templates/default.conf.template
+  && printf 'server {\n  listen ${PORT};\n  root /usr/share/nginx/html;\n  index index.html;\n  location / { try_files $uri $uri/ /index.html; }\n}\n' > /etc/nginx/templates/default.conf.template
 EXPOSE 5173
 CMD ["nginx", "-g", "daemon off;"]
