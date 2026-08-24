@@ -13,7 +13,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 # Install CPU-only torch first so the transitive deps (sentence-transformers,
 # transformers, FlagEmbedding) don't pull multi-GB CUDA wheels. Railway/most
 # hosts have no GPU, and CPU inference is fine for embeddings at this scale.
