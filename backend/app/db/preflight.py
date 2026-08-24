@@ -63,6 +63,41 @@ def main() -> None:
                 )
             else:
                 logger.info("preflight: no stale DB sessions to clear")
+
+            # --- diagnostics (surface DB state into the deploy logs) ---
+            try:
+                total, maxc = conn.execute(
+                    text(
+                        "SELECT (SELECT count(*) FROM pg_stat_activity "
+                        "WHERE datname = current_database()), "
+                        "current_setting('max_connections')"
+                    )
+                ).one()
+                logger.info("preflight: %s connections to this DB (max=%s)", total, maxc)
+                for r in conn.execute(
+                    text(
+                        "SELECT pid, state, application_name, wait_event_type, "
+                        "wait_event, coalesce(extract(epoch from now()-xact_start)::int,-1) "
+                        "FROM pg_stat_activity WHERE datname = current_database() "
+                        "AND pid <> pg_backend_pid()"
+                    )
+                ):
+                    logger.info(
+                        "preflight: session pid=%s state=%s app=%r wait=%s/%s xact_age=%ss",
+                        r[0], r[1], r[2], r[3], r[4], r[5],
+                    )
+                try:
+                    ver = conn.execute(
+                        text("SELECT version_num FROM alembic_version")
+                    ).scalars().all()
+                    logger.info("preflight: alembic_version=%s", ver)
+                except Exception as exc:
+                    logger.info(
+                        "preflight: alembic_version not readable (%s)",
+                        exc.__class__.__name__,
+                    )
+            except Exception as exc:
+                logger.info("preflight: diagnostics failed (%s)", exc.__class__.__name__)
     except Exception as exc:  # never block startup on preflight
         logger.warning(
             "preflight skipped (%s): %s", exc.__class__.__name__, exc
