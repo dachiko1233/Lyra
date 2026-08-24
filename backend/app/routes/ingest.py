@@ -17,7 +17,6 @@ from app.auth.deps import require_verified
 from app.db.database import get_db
 from app.db.models import User
 from app.entitlements import service as entitlements
-from app.rag.ingest import DATA_DIR, ingest_directory
 
 logger = logging.getLogger("app.rag")
 
@@ -30,6 +29,10 @@ class IngestOut(BaseModel):
 
 
 def _count_data_files() -> int:
+    # Lazy import: app.rag.ingest pulls in the heavy RAG stack (torch, etc.).
+    # Keeping it out of module import time keeps app startup / healthcheck fast.
+    from app.rag.ingest import DATA_DIR
+
     return sum(
         1 for p in DATA_DIR.rglob("*") if p.is_file() and p.name != ".gitkeep"
     )
@@ -52,6 +55,8 @@ def ingest(
         )
 
     try:
+        from app.rag.ingest import ingest_directory
+
         count = ingest_directory()
     except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

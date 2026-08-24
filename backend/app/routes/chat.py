@@ -17,7 +17,6 @@ from app.auth.deps import require_verified
 from app.db.database import get_db
 from app.db.models import User
 from app.entitlements import service as entitlements
-from app.rag.query import stream_answer
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -44,6 +43,12 @@ def chat(
     db.commit()
 
     question = payload.message
+
+    # Import the RAG stack lazily (inside the request, not at module import).
+    # It pulls in torch / llama_index / transformers / chromadb, which take a
+    # long time to import; doing it at startup made uvicorn miss the platform
+    # healthcheck window. Deferring it here keeps /api/health instant.
+    from app.rag.query import stream_answer
 
     def generate() -> Iterator[bytes]:
         # Stream tokens as plain UTF-8 text (text/plain, chunked).
