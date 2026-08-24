@@ -5,7 +5,7 @@
     "dockerfilePath": "backend/Dockerfile"
   },
   "deploy": {
-    "startCommand": "python -m app.db.preflight && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+    "startCommand": "python -m app.db.preflight; echo '>>PREFLIGHT_EXITED'; alembic upgrade head; echo '>>ALEMBIC_EXITED'; uvicorn app.main:app --host 0.0.0.0 --port $PORT",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

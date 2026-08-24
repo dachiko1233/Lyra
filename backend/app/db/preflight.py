@@ -107,8 +107,17 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import os
+    import sys
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
     main()
+    # Force immediate exit. A lingering DB socket over Railway's private network
+    # can otherwise stall interpreter shutdown, which would wedge the
+    # "preflight && alembic && uvicorn" start chain before migrations even run.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
