@@ -18,6 +18,8 @@ raises — a preflight problem must not be able to block startup on its own.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 
 from sqlalchemy import create_engine, text
 
@@ -100,14 +102,23 @@ def main() -> None:
                     )
             except Exception as exc:
                 logger.info("preflight: diagnostics failed (%s)", exc.__class__.__name__)
+
+            # Hard-exit here, still *inside* the open connection block. Do not
+            # fall through to the connection/pool teardown: gracefully closing
+            # the socket hangs over Railway's private IPv6 network, which would
+            # wedge the whole "preflight && alembic && uvicorn" start chain.
+            # AUTOCOMMIT means all work above is already committed.
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
     except Exception as exc:  # never block startup on preflight
         logger.warning(
             "preflight skipped (%s): %s", exc.__class__.__name__, exc
         )
-    # NOTE: deliberately no engine.dispose() here. Gracefully closing the pooled
-    # socket hangs over Railway's private network; __main__ hard-exits instead
-    # and lets the OS drop the socket. The work above is already committed
-    # (AUTOCOMMIT), so nothing is lost.
+    # Reached only if we never got a usable connection above (exception path).
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":
