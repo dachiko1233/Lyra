@@ -32,10 +32,12 @@ STALE_XACT_SECONDS = 30
 
 def main() -> None:
     # AUTOCOMMIT + pre-ping so this quick maintenance query can't itself wedge.
+    # connect_timeout so a network problem fails fast instead of hanging.
     engine = create_engine(
         settings.database_url,
         isolation_level="AUTOCOMMIT",
         pool_pre_ping=True,
+        connect_args={"connect_timeout": 15},
     )
     try:
         with engine.connect() as conn:
@@ -102,8 +104,10 @@ def main() -> None:
         logger.warning(
             "preflight skipped (%s): %s", exc.__class__.__name__, exc
         )
-    finally:
-        engine.dispose()
+    # NOTE: deliberately no engine.dispose() here. Gracefully closing the pooled
+    # socket hangs over Railway's private network; __main__ hard-exits instead
+    # and lets the OS drop the socket. The work above is already committed
+    # (AUTOCOMMIT), so nothing is lost.
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ targets the ORM metadata so autogenerate works."""
 
 from __future__ import annotations
 
+import os
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -55,6 +57,16 @@ def run_migrations_online() -> None:
             # minutes. app.db.preflight normally clears such sessions first.
             connection.exec_driver_sql("SET lock_timeout = '30s'")
             context.run_migrations()
+        # Migrations are now committed (begin_transaction block exited). On
+        # platforms where gracefully closing the DB socket hangs (Railway's
+        # private IPv6 network), hard-exit here so the deploy's start chain
+        # proceeds to uvicorn instead of blocking on connection teardown.
+        # Guarded by an env flag so ordinary alembic commands (revision,
+        # downgrade, local dev) close cleanly and are unaffected.
+        if os.getenv("ALEMBIC_HARD_EXIT") == "1":
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
 
 
 if context.is_offline_mode():
